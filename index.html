@@ -210,7 +210,8 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;direction:ltr;unico
 
 <div id="modalRoot"></div>
 
-<script type="text/plain" id="codegsSrc">// ==== Intake questions - Google Sheet backend ====
+<script type="text/plain" id="codegsSrc">/** @OnlyCurrentDoc */
+// ==== Intake questions - Google Sheet backend ====
 // Admin code: needed on the big screen to drag, delete and edit headings.
 // Change it before deploying.
 const ADMIN_CODE = '1234';
@@ -314,7 +315,7 @@ function add_(p) {
   // prevent spreadsheet formulas
   const safe = /^[=+\-@]/.test(text) ? "'" + text : text;
   const author = clean_(p.author, 40);
-  const id = Utilities.getUuid().slice(0, 8);
+  const id = 'q' + Utilities.getUuid().slice(0, 8);
   const now = Date.now();
   sheet_(Q_SHEET, Q_HEAD).appendRow([id, safe, author, now, '', now, '']);
   return { ok: true, id: id };
@@ -379,10 +380,11 @@ const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 };
-const uid = () => Math.random().toString(36).slice(2, 10);
+const uid = () => 'h' + Math.random().toString(36).slice(2, 10);
 
 const params = new URLSearchParams(location.search);
-let API = params.get('api') || '';
+const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbyWidUaa1xGZl5Dpto630zcnaPcVGUh6NDcAw2a8ihYTgri76_l9T3JonzDGcGrRY1V-A/exec';
+let API = params.has('setup') ? '' : (params.get('api') || DEFAULT_API);
 const baseUrl = location.origin + location.pathname;
 
 async function apiGet(){
@@ -940,7 +942,7 @@ function showSuggestions(){
 }
 
 /* ---------- קוד סריקה וייצוא ---------- */
-function participantUrl(){ return baseUrl + '?api=' + encodeURIComponent(API); }
+function participantUrl(){ return API === DEFAULT_API ? baseUrl : baseUrl + '?api=' + encodeURIComponent(API); }
 function showQR(){
   modal('<h2 style="text-align:center">סרקו כדי לכתוב שאלה</h2><div class="qrbox" id="qr"></div><div class="row" style="justify-content:center"><button class="btn" id="cpP">העתקת הקישור</button><button class="btn ghost" id="qClose">סגירה</button></div>',
     (ov, close) => {

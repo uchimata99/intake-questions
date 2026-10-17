@@ -1,3 +1,4 @@
+/** @OnlyCurrentDoc */
 // ==== Intake questions - Google Sheet backend ====
 // Admin code: needed on the big screen to drag, delete and edit headings.
 // Change it before deploying.
@@ -102,7 +103,7 @@ function add_(p) {
   // prevent spreadsheet formulas
   const safe = /^[=+\-@]/.test(text) ? "'" + text : text;
   const author = clean_(p.author, 40);
-  const id = Utilities.getUuid().slice(0, 8);
+  const id = 'q' + Utilities.getUuid().slice(0, 8);
   const now = Date.now();
   sheet_(Q_SHEET, Q_HEAD).appendRow([id, safe, author, now, '', now, '']);
   return { ok: true, id: id };
