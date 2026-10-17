@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>שאלות לאינטייק</title>
+<title>ניטור בקליניקה</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
@@ -82,6 +82,12 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;direction:ltr;unico
 .mine li .mt{font-size:.8rem;color:var(--peach-ink);background:var(--peach-soft);border-radius:20px;padding:0 8px;margin-inline-start:6px}
 .hist-banner{background:var(--peach);color:#3b2214;padding:8px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:500}
 .hist-banner button{border:1px solid #3b2214;background:transparent;border-radius:8px;padding:3px 12px;cursor:pointer;color:inherit}
+.sessbar{text-align:center;padding:18px 16px 0}
+.sesstitle{display:inline-block;margin:0;font-size:2em;font-weight:800;color:var(--ink);padding:4px 18px;border-radius:12px;border-bottom:4px solid var(--peach)}
+.sesstitle.empty{color:var(--muted);font-weight:500;font-size:1.3em;border-bottom-color:var(--line)}
+.admin-title .sesstitle{cursor:pointer}
+.admin-title .sesstitle:hover{background:var(--accent-soft)}
+.psess{display:inline-block;background:var(--peach-soft);color:var(--peach-ink);border:1px solid var(--peach);border-radius:20px;padding:2px 14px;font-weight:700;margin-bottom:6px}
 .sess{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}
 .sess .nm{flex:1;font-weight:700}
 .sess .meta{color:var(--muted);font-size:.85rem;font-weight:400}
@@ -129,7 +135,7 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;direction:ltr;unico
 
 <!-- ================= הגדרה ================= -->
 <div id="setup" class="wrap setup" hidden>
-  <h1>שאלות לאינטייק — הקמה</h1>
+  <h1>ניטור בקליניקה — הקמה</h1>
   <p>הקמה חד־פעמית. השאלות יישמרו בגיליון גוגל שלך.</p>
 
   <div class="step"><h3><span class="num">1</span>פותחים גיליון חדש</h3>
@@ -178,8 +184,9 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;direction:ltr;unico
 
 <!-- ================= משתתף ================= -->
 <div id="participant" class="phone" hidden>
-  <h1>שאלות לאינטייק</h1>
-  <p class="sub">הוסיפו שאלה שכדאי לשאול בשיחת האינטייק. היא תופיע על המסך הגדול.</p>
+  <h1>ניטור בקליניקה</h1>
+  <div class="psess" id="pSess" hidden></div>
+  <p class="sub">הוסיפו שאלה. היא תופיע על המסך הגדול.</p>
   <button class="btn primary addq" id="openForm">＋ הוספת שאלה</button>
   <div class="qform" id="qForm" hidden>
     <label class="flabel" for="qTopic">נושא</label>
@@ -200,7 +207,7 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;direction:ltr;unico
 <div id="screen" class="screen" hidden>
   <div id="errBanner" class="err-banner" hidden>אין חיבור לגיליון. מנסה שוב…</div>
   <div class="topbar">
-    <h1 id="boardTitle">שאלות לאינטייק</h1>
+    <h1 id="boardTitle">ניטור בקליניקה</h1>
     <div class="tools" id="adminTools">
       <button class="btn" id="addHeadingBtn">＋ נושא</button>
       <button class="btn" id="suggestBtn">💡 הצעת נושאים</button>
@@ -221,13 +228,14 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;direction:ltr;unico
     <span class="count" id="countLbl"></span>
   </div>
   <div class="hist-banner" id="histBanner" hidden><span>צופה בסשן קודם: <b id="histName"></b></span><button id="histBack">חזרה לסשן הנוכחי</button></div>
+  <div class="sessbar"><h2 id="sessTitle" class="sesstitle"></h2></div>
   <div class="board" id="board"></div>
 </div>
 
 <div id="modalRoot"></div>
 
 <script type="text/plain" id="codegsSrc">/** @OnlyCurrentDoc */
-// ==== Intake questions - Google Sheet backend ====
+// ==== Clinic monitoring board - Google Sheet backend ====
 // Admin code: needed on the big screen to drag, edit topics and start sessions.
 const ADMIN_CODE = '1234';
 
@@ -268,6 +276,8 @@ function handle_(p) {
       out = withLock_(function () { return del_(p); });
     } else if (action === 'newSession') {
       out = withLock_(function () { return newSession_(p); });
+    } else if (action === 'renameSession') {
+      out = withLock_(function () { return renameSession_(p); });
     } else if (action === 'sessions') {
       out = sessions_();
     } else if (action === 'session') {
@@ -329,7 +339,20 @@ function read_(qSh, hSh) {
 }
 
 function state_() {
-  return read_(sheet_(Q_SHEET, Q_HEAD), sheet_(H_SHEET, H_HEAD));
+  const out = read_(sheet_(Q_SHEET, Q_HEAD), sheet_(H_SHEET, H_HEAD));
+  out.sessionName = currentName_();
+  return out;
+}
+
+function currentName_() {
+  return PropertiesService.getScriptProperties().getProperty('sessionName') || '';
+}
+
+function renameSession_(p) {
+  const name = clean_(p.name, 60);
+  if (!name) return { error: 'empty' };
+  PropertiesService.getScriptProperties().setProperty('sessionName', name);
+  return state_();
 }
 
 function clean_(s, max) {
@@ -413,7 +436,9 @@ function newSession_(p) {
   const qSh = sheet_(Q_SHEET, Q_HEAD);
   const hSh = sheet_(H_SHEET, H_HEAD);
   const now = new Date();
-  const name = clean_(p.name, 60) ||
+  const newName = clean_(p.name, 60);
+  if (!newName) return { error: 'empty' };
+  const name = currentName_() ||
     Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
   const id = 's' + Utilities.getUuid().slice(0, 8);
   const count = rows_(qSh, Q_HEAD).filter(function (q) { return q.id && !q.deleted; }).length;
@@ -426,6 +451,7 @@ function newSession_(p) {
   sheet_(Q_SHEET, Q_HEAD);
   const nh = sheet_(H_SHEET, H_HEAD);
   if (hVals.length) nh.getRange(2, 1, hVals.length, H_HEAD.length).setValues(hVals);
+  PropertiesService.getScriptProperties().setProperty('sessionName', newName);
   return state_();
 }
 
@@ -685,7 +711,7 @@ function initParticipant(){
     $('#topicChips').innerHTML = topics.map(t => '<button type="button" class="chip' + (t === cur ? ' on' : '') + '" data-t="' + esc(t) + '">' + esc(t) + '</button>').join('');
   };
   const loadTopics = async () => {
-    try { const d = await apiGet(); if (d.ok){ topics = d.headings.map(h => h.title); renderChips(); } } catch(e){}
+    try { const d = await apiGet(); if (d.ok){ topics = d.headings.map(h => h.title); renderChips(); $('#pSess').textContent = d.sessionName || ''; $('#pSess').hidden = !d.sessionName; } } catch(e){}
   };
   $('#topicChips').onclick = e => {
     const c = e.target.closest('.chip'); if (!c) return;
@@ -755,6 +781,7 @@ function initScreen(){
   $('#newSessionBtn').onclick = newSession;
   $('#historyBtn').onclick = showHistory;
   $('#histBack').onclick = leaveHistory;
+  $('#sessTitle').onclick = () => { if (S.admin && !S.viewing) nameSession(); };
   setAdmin(false);
   if (S.code){
     apiPost({ action:'check', code:S.code }).then(d => { if (d.ok) setAdmin(true); else { S.code=''; login(); } }).catch(() => {});
@@ -765,8 +792,22 @@ function initScreen(){
   setInterval(poll, 3000);
 }
 
+async function nameSession(required){
+  const S = screenState;
+  const v = await askText(required ? 'איך נקרא לסשן הזה?' : 'שם הסשן', S.sessionName || '', 'שמירה');
+  if (!v) return;
+  S.sessionName = v; render(true);
+  S.pending++;
+  try { const d = await apiPost({ action:'renameSession', code:S.code, name:v }); if (!d.ok) toast('שמירת השם נכשלה'); }
+  catch(e){ toast('שמירת השם נכשלה'); }
+  S.pending = Math.max(0, S.pending - 1);
+}
+
 function setAdmin(on){
   screenState.admin = on;
+  if (on) setTimeout(async () => {
+    try { const d = await apiGet(); if (d.ok && !d.sessionName && !screenState.editing) nameSession(true); } catch(e){}
+  }, 300);
   $('#adminTools').hidden = !on;
   $('#loginBtn').hidden = on;
   $('#screen').classList.toggle('admin', on);
@@ -809,7 +850,7 @@ function applyState(d){
   else d.questions.forEach(q => { if (!S.seen.has(q.id)){ S.seen.add(q.id); S.freshUntil[q.id] = now + 20000; } });
   const validH = new Set(d.headings.map(h => h.id));
   d.questions.forEach(q => { if (q.heading && !validH.has(q.heading)) q.heading = ''; });
-  S.questions = d.questions; S.headings = d.headings;
+  S.questions = d.questions; S.headings = d.headings; S.sessionName = d.sessionName || '';
   render();
 }
 
@@ -824,7 +865,7 @@ function sortedIn(hid){
 function render(force){
   const S = screenState;
   const ed = S.admin && !S.viewing;
-  const sig = JSON.stringify([S.questions, S.headings, ed, S.showNames, Object.keys(S.freshUntil)]);
+  const sig = JSON.stringify([S.questions, S.headings, ed, S.showNames, Object.keys(S.freshUntil), S.sessionName, S.viewing && S.viewing.id]);
   if (!force && sig === S.sig) return;
   S.sig = sig;
   const board = $('#board');
@@ -849,6 +890,12 @@ function render(force){
   S.headings.forEach(h => { html += col(h.id, h.title, 'h'); });
   if (ed) html += '<button class="addcol" id="addColInline">＋ נושא חדש</button>';
   board.innerHTML = html;
+  const st = $('#sessTitle');
+  const nm = S.viewing ? S.viewing.name : S.sessionName;
+  st.textContent = nm || (ed ? 'לחץ כאן כדי לתת שם לסשן' : '');
+  st.classList.toggle('empty', !nm);
+  $('#screen').classList.toggle('admin-title', ed);
+  document.title = (nm ? nm + ' · ' : '') + 'ניטור בקליניקה';
   $('#countLbl').textContent = S.questions.length + ' שאלות · ' + S.headings.length + ' נושאים';
   $('#screen').classList.toggle('admin', ed);
   if (ed) wireBoard();
@@ -1072,20 +1119,23 @@ const fmtDate = t => { try { return new Date(t).toLocaleString('he-IL', { dateSt
 function newSession(){
   const S = screenState;
   const n = S.questions.length;
-  modal('<h2>סשן חדש</h2><p>הסשן הנוכחי (' + n + ' שאלות) יישמר בהיסטוריה, והלוח יתרוקן לשאלות חדשות.</p>' +
-    '<label class="flabel" for="sName">שם לסשן הנוכחי, לשמירה בהיסטוריה</label><input type="text" id="sName" maxlength="60" placeholder="לדוגמה: ישיבת צוות 17.10">' +
+  const cur = S.sessionName ? '„' + esc(S.sessionName) + '“' : 'הנוכחי';
+  modal('<h2>סשן חדש</h2><p>הסשן ' + cur + ' (' + n + ' שאלות) יישמר בהיסטוריה, והלוח יתרוקן לשאלות חדשות.</p>' +
+    '<label class="flabel" for="sName">שם הסשן החדש</label><input type="text" id="sName" maxlength="60" placeholder="לדוגמה: ישיבת צוות 24.10">' +
     '<label class="switch"><input type="checkbox" id="sKeep" checked><span>להשאיר את הנושאים גם בסשן החדש</span></label>' +
-    '<div class="row"><button class="btn primary" id="sOk">התחלת סשן חדש</button><button class="btn ghost" id="sNo">ביטול</button><span id="sMsg" class="status"></span></div>',
+    '<div class="row"><button class="btn primary" id="sOk">פתיחת הסשן</button><button class="btn ghost" id="sNo">ביטול</button><span id="sMsg" class="status"></span></div>',
     (ov, close) => {
       $('#sName', ov).focus();
       $('#sNo', ov).onclick = close;
+      $('#sName', ov).onkeydown = e => { if (e.key === 'Enter') $('#sOk', ov).click(); };
       $('#sOk', ov).onclick = async () => {
+        if (!$('#sName', ov).value.trim()){ $('#sMsg', ov).className = 'status err'; $('#sMsg', ov).textContent = 'כתוב שם לסשן החדש'; $('#sName', ov).focus(); return; }
         $('#sOk', ov).disabled = true; $('#sMsg', ov).className = 'status'; $('#sMsg', ov).textContent = 'שומר…';
         try {
           const d = await apiPost({ action:'newSession', code:S.code, name: $('#sName', ov).value.trim(), keepTopics: $('#sKeep', ov).checked });
           if (!d.ok) throw 0;
           close(); S.seen = null; S.freshUntil = {}; applyState(d);
-          toast('הסשן נשמר בהיסטוריה. אפשר להתחיל לאסוף שאלות חדשות.');
+          toast('הסשן הקודם נשמר בהיסטוריה. הסשן החדש פתוח.');
         } catch(e){ $('#sOk', ov).disabled = false; $('#sMsg', ov).className = 'status err'; $('#sMsg', ov).textContent = 'השמירה נכשלה. נסה שוב.'; }
       };
     });

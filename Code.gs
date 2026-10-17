@@ -1,5 +1,5 @@
 /** @OnlyCurrentDoc */
-// ==== Intake questions - Google Sheet backend ====
+// ==== Clinic monitoring board - Google Sheet backend ====
 // Admin code: needed on the big screen to drag, edit topics and start sessions.
 const ADMIN_CODE = '1234';
 
@@ -40,6 +40,8 @@ function handle_(p) {
       out = withLock_(function () { return del_(p); });
     } else if (action === 'newSession') {
       out = withLock_(function () { return newSession_(p); });
+    } else if (action === 'renameSession') {
+      out = withLock_(function () { return renameSession_(p); });
     } else if (action === 'sessions') {
       out = sessions_();
     } else if (action === 'session') {
@@ -101,7 +103,20 @@ function read_(qSh, hSh) {
 }
 
 function state_() {
-  return read_(sheet_(Q_SHEET, Q_HEAD), sheet_(H_SHEET, H_HEAD));
+  const out = read_(sheet_(Q_SHEET, Q_HEAD), sheet_(H_SHEET, H_HEAD));
+  out.sessionName = currentName_();
+  return out;
+}
+
+function currentName_() {
+  return PropertiesService.getScriptProperties().getProperty('sessionName') || '';
+}
+
+function renameSession_(p) {
+  const name = clean_(p.name, 60);
+  if (!name) return { error: 'empty' };
+  PropertiesService.getScriptProperties().setProperty('sessionName', name);
+  return state_();
 }
 
 function clean_(s, max) {
@@ -185,7 +200,9 @@ function newSession_(p) {
   const qSh = sheet_(Q_SHEET, Q_HEAD);
   const hSh = sheet_(H_SHEET, H_HEAD);
   const now = new Date();
-  const name = clean_(p.name, 60) ||
+  const newName = clean_(p.name, 60);
+  if (!newName) return { error: 'empty' };
+  const name = currentName_() ||
     Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
   const id = 's' + Utilities.getUuid().slice(0, 8);
   const count = rows_(qSh, Q_HEAD).filter(function (q) { return q.id && !q.deleted; }).length;
@@ -198,6 +215,7 @@ function newSession_(p) {
   sheet_(Q_SHEET, Q_HEAD);
   const nh = sheet_(H_SHEET, H_HEAD);
   if (hVals.length) nh.getRange(2, 1, hVals.length, H_HEAD.length).setValues(hVals);
+  PropertiesService.getScriptProperties().setProperty('sessionName', newName);
   return state_();
 }
 
