@@ -69,7 +69,7 @@ code,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;direction:ltr;unico
 .col.unsorted{border-style:dashed;background:var(--peach-soft);border-color:var(--peach)}
 .colhead{background:var(--accent-soft);border-radius:14px 14px 0 0}
 .col.unsorted .colhead{background:transparent}
-.card .tp{display:inline-block;margin-top:6px;background:var(--peach-soft);color:var(--peach-ink);border:1px solid var(--peach);border-radius:20px;padding:0 9px;font-size:.78em;font-weight:500}
+.card .tp{display:inline-block;margin-bottom:6px;background:var(--peach-soft);color:var(--peach-ink);border:1px solid var(--peach);border-radius:20px;padding:1px 11px;font-size:.9em;font-weight:800}
 .qform{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:14px;box-shadow:var(--shadow)}
 .flabel{display:block;font-weight:700;margin:12px 0 6px}
 .flabel:first-child{margin-top:0}
@@ -832,10 +832,9 @@ function render(force){
   const card = q => {
     const fresh = (S.freshUntil[q.id] || 0) > now;
     const author = S.showNames && q.author ? '<div class="a">— ' + esc(q.author) + '</div>' : '';
-    const hTitle = (S.headings.find(h => h.id === q.heading) || {}).title || '';
-    const topic = q.topic && normT(q.topic) !== normT(hTitle) ? '<span class="tp">' + esc(q.topic) + '</span>' : '';
+    const topic = q.topic && !q.heading ? '<div class="tp">' + esc(q.topic) + '</div>' : '';
     const acts = ed ? '<div class="acts"><button class="iconbtn" data-edit="' + q.id + '" title="עריכה">✎</button><button class="iconbtn" data-del="' + q.id + '" title="מחיקה">🗑</button></div>' : '';
-    return '<div class="card' + (fresh ? ' fresh' : '') + '" data-id="' + q.id + '">' + '<div class="t">' + esc(q.text) + '</div>' + topic + author + acts + '</div>';
+    return '<div class="card' + (fresh ? ' fresh' : '') + '" data-id="' + q.id + '">' + topic + '<div class="t">' + esc(q.text) + '</div>' + author + acts + '</div>';
   };
   const col = (hid, title, cls) => {
     const qs = sortedIn(hid);
@@ -844,9 +843,9 @@ function render(force){
         (ed ? '<button class="iconbtn" data-rename="' + hid + '" title="שינוי שם">✎</button><button class="iconbtn" data-rmh="' + hid + '" title="מחיקת נושא">✕</button>' : '')
       : '<h2>' + esc(title) + '</h2><span class="n">' + qs.length + '</span>';
     return '<section class="col ' + cls + '" data-hcol="' + hid + '"><div class="colhead">' + head + '</div><div class="list" data-heading="' + hid + '">' +
-      (qs.length ? qs.map(card).join('') : '<div class="empty">' + (hid ? 'גררו לכאן שאלות' : 'שאלות חדשות יופיעו כאן') + '</div>') + '</div></section>';
+      (qs.length ? qs.map(card).join('') : '<div class="empty">' + (hid ? 'גררו לכאן שאלות' : 'שאלות בלי נושא קבוע יופיעו כאן') + '</div>') + '</div></section>';
   };
-  let html = col('', 'ממתינות למיון', 'unsorted');
+  let html = col('', 'כללי', 'unsorted');
   S.headings.forEach(h => { html += col(h.id, h.title, 'h'); });
   if (ed) html += '<button class="addcol" id="addColInline">＋ נושא חדש</button>';
   board.innerHTML = html;
@@ -966,7 +965,7 @@ function smartSort(){
   const S = screenState;
   const unsorted = sortedIn('');
   if (!S.headings.length){ toast('אין עדיין נושאים. פותח הצעות…'); return showSuggestions(); }
-  if (!unsorted.length){ toast('אין שאלות שממתינות למיון'); return; }
+  if (!unsorted.length){ toast('אין שאלות בכללי למיון'); return; }
   const before = snap();
   const profiles = S.headings.map(h => ({ h, p: Smart.headingProfile(h.title) }));
   let moved = 0;
@@ -1022,7 +1021,7 @@ function showSuggestions(){
   const template = Smart.DOMAINS.map(d => d.name).filter(n => !S.headings.some(h => h.title === n));
   let html = '<h2>הצעות לנושאים</h2>';
   if (!out.length){
-    html += '<p>' + (S.questions.length ? 'לא מצאתי נושאים חדשים בשאלות שממתינות למיון.' : 'עדיין אין שאלות. אפשר להתחיל מערכת נושאים מוכנה לאינטייק בהתמכרויות, ולמחוק מה שלא צריך.') + '</p>';
+    html += '<p>' + (S.questions.length ? 'לא מצאתי נושאים חדשים בשאלות שבכללי.' : 'עדיין אין שאלות. אפשר להתחיל מערכת נושאים מוכנה לאינטייק בהתמכרויות, ולמחוק מה שלא צריך.') + '</p>';
   } else {
     html += '<p>לפי השאלות שעל המסך. אפשר לשנות כל שם לפני ההוספה.</p>';
     out.forEach((s, i) => {
@@ -1139,7 +1138,7 @@ function showQR(){
 function groupsForExport(){
   const S = screenState;
   const g = S.headings.map(h => ({ title: h.title, qs: sortedIn(h.id) }));
-  const u = sortedIn(''); if (u.length) g.push({ title: 'לא ממוינות', qs: u });
+  const u = sortedIn(''); if (u.length) g.push({ title: 'כללי', qs: u });
   return g;
 }
 function showExport(){
@@ -1149,7 +1148,7 @@ function showExport(){
       $('#xCsv', ov).onclick = () => {
         const q = s => '"' + String(s).replace(/"/g, '""') + '"';
         const lines = [['נושא','מספר','שאלה','כותב','נושא שהוצע'].map(q).join(',')];
-        groupsForExport().forEach(g => g.qs.forEach((x, i) => lines.push([g.title, i + 1, x.text, x.author || '', x.topic || ''].map(q).join(','))));
+        groupsForExport().forEach(g => g.qs.forEach((x, i) => lines.push([g.title, i + 1, x.text, x.author || '', x.heading ? '' : (x.topic || '')].map(q).join(','))));
         const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
         a.download = 'intake-questions-' + new Date().toISOString().slice(0, 10) + '.csv';
